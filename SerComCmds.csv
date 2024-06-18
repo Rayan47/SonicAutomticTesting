@@ -1,0 +1,26 @@
+Commands,Success,Waits,lfr,FailMsg
+ls /tmp/run/mountd | grep sda1,sda1,,,Pendrive Fail
+python /tmp/run/mountd/sda1/sonic_test_script/wdt.py &,,,,
+#cp /tmp/run/mountd/sda1/lks7688.img /tmp/,,,,
+#cd /tmp,,,,
+sysupgrade -v /tmp/run/mountd/sda1/lks7688.img,br-lan: port 2(ra0) entered forwarding state,350,0,Failed SysUpgrade
+#,,,,
+#,,,,
+#,,,,
+python /tmp/run/mountd/sda1/sonic_test_script/wdt.py &,,,,
+cp /tmp/run/mountd/sda1/application_v4.tar.gz /root/;,,,,
+cp /tmp/run/mountd/sda1/test_scripts.tar.gz /root/;,,,,
+cp /tmp/run/mountd/sda1/icos.tar.gz /root/ &,,,,
+cp /tmp/run/mountd/sda1/openssl-util.ipk /tmp/;,,,,
+cp /tmp/run/mountd/sda1/RayanScripts/opkg_py_dep.sh /tmp/;,,,,
+cd /tmp;,,,,
+./opkg_py_dep.sh Rayan 12345678;,sd_card_success,350,0,Sd card fail
+#,,,,
+sleep 3,,,,
+cd,,,,
+type pppd;,pppd is /usr/sbin/pppd,,,
+type chat;,chat is /usr/sbin/chat,,,
+type snmpd;,snmpd is /usr/sbin/snmpd,,,
+which minicom;,/usr/sbin/minicom,,,
+opkg list-installed | grep mraa;,libmraa - 0.8.0,,,
+opkg list-installed | grep pyserial;,python-pyserial,,,

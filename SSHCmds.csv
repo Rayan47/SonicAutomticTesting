@@ -1,0 +1,10 @@
+Commands,SuccessCheck,FailMsg
+ls -lh /root | grep application_v4.tar.gz,application_v4.tar.gz,Application Tar not found
+ls -lh /root | grep icos.tar.gz,icos.tar.gz,icos tar not found
+ls -lh /root | grep test_scripts.tar.gz,test_scripts.tar.gz,testscripts not found
+python /tmp/run/mountd/sda1/RayanScripts/DIO_Test.py,DIO Success,DIO Fail
+python /tmp/run/mountd/sda1/RayanScripts/adc_c.py,ADC Current HIGH test PASS,ADC Current Fail
+python /tmp/run/mountd/sda1/RayanScripts/adc_t.py,ADC Temperature test PASS,ADC Temp Fail
+python /tmp/run/mountd/sda1/RayanScripts/adc_v.py,ADC Voltage HIGH test PASS,ADC Voltage Fail
+python /tmp/run/mountd/sda1/RayanScripts/2Way485.py,485 pass,485 Fail
+python /tmp/run/mountd/sda1/RayanScripts/ldr.py,LDR Test Pass,LDR Fail
