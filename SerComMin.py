@@ -9,32 +9,37 @@ import serial
 import serial.tools.list_ports
 import time
 import os
-import fabric
+
+
+__NEWLINE__ = "root@mylinkit"
 
 class SerCom:
-    def __init__(self, tempfilename="dumplogs.txt"):
+    def __init__(self, verbose=False):
         self.ports_List = []
         #List of USB serial ports found at last scan
         self.connection = None
         #USB serial ports successfully connected to
-        self.logs = open(tempfilename,"a")
+        self.logs = None
         #Log dump for all devices
-        self.readyCheck = "root@mylinkit"
+        self.readyCheck = __NEWLINE__
         #check string for end of command execution
         self.NoC = 0
         #Number of connected devices
-        self.filename = tempfilename
+        self.filename = "tempfilename"
         self.imei = ""
         self.ip = ""
+        self.com = "Default"
         self.readPorts()
         self.connectPorts()
-        self.ssh = None
-        self.com = "Default"
+        self.verbose = verbose
+
+        
 
     def __del__(self):
         if self.connection:
             self.connection.close()
-        self.logs.close()
+        if self.logs:
+            self.logs.close()
         print("Object deleted")
     def readPorts(self):#Scans for usb serial devices
         ports = []
@@ -51,8 +56,11 @@ class SerCom:
                 self.connection = conn1
                 print(f"Connected to {com}")
                 self.com = str(com[-2:])
-                self.ip = "192.168.100."+ self.com
+                self.ip = "192.168.124."+ self.com
                 self.NoC += 1
+                self.logs = open(com+".txt", "a")
+                self.filename = com+".txt"
+                time.sleep(1)
                 break
             except serial.SerialException:
                 pass
@@ -75,29 +83,33 @@ class SerCom:
         con.write(cmde.encode('utf-8'))
         resp = con.readline().decode('utf-8')
         self.logs.write(resp+"\n")
-        print(resp+"\n")
+        if self.verbose:
+            print(resp+"\n")
         timeout = waits
         while resp.find(cmdL) == -1 and timeout > 0:
             resp = con.readline().decode('utf-8')
             self.logs.write(resp)
-            print(resp+"\n")
+            if self.verbose:
+                print(resp+"\n")
             timeout -= 1
         
     
-    def Ready(self, test_str='root@mylinkit', waits=20, lfr=True):#Checks if test_str or readyCheck (only if lfr=True) is in output to signify end of output
+    def Ready(self, test_str=__NEWLINE__, waits=20, lfr=True):#Checks if test_str or readyCheck (only if lfr=True) is in output to signify end of output
         con = self.connection
         resp = con.readline().decode('utf-8')
         self.logs.write(resp+"\n")
-        print(resp+"\n")
+        if self.verbose:
+            print(resp+"\n")
         timeout = waits
         while resp.find(test_str) + resp.find(self.readyCheck) == -2 and timeout > 0:
             resp = con.readline().decode('utf-8')
             self.logs.write(resp+"\n")
-            print(resp+"\n")
+            if self.verbose:
+                print(resp+"\n")
             timeout -= 1
             
         if timeout == 0:
-            print("Timed out")
+            print("Timed out.....CRITICAL ERROR")
             return 0
         if resp.find(test_str) == -1:
             return 1#denotes fail
@@ -105,7 +117,8 @@ class SerCom:
             while resp.find(self.readyCheck) == -1:
                 resp = con.readline().decode('utf-8')
                 self.logs.write(resp+"\n")
-                print(resp+"\n")
+                if self.verbose:
+                    print(resp+"\n")
         return 2#denotes success
     def pChange(self):#Changes passwd to root
         self.runCmd("passwd root", waits=1)
@@ -114,81 +127,105 @@ class SerCom:
         time.sleep(1)
         self.runCmd("root", waits=0)
         suc = self.Ready()
+        #Implement flag system
         print("Passwd changed to root" if suc == 2 else "password error")
+        
     def start(self):#Reads and connects to all available ports
-        self.Ready("nonblocking pool", lfr=False, waits=350)
+        self.runCmd("#")
+        self.Ready("nonblocking pool", waits=350, lfr=False)
         print("Attempting newline")
         self.runCmd("#")
         self.Ready(waits=150)
         print("ready")
         time.sleep(2)
-        self.logFiler()
         return self
-    def getIMEI(self):
-        con = self.connection
-        self.runCmd("echo 3 > /proc/sys/kernel/printk")
-        self.Ready()
-        self.runCmd("cp /tmp/run/mountd/sda1/RayanScripts/ImeiRayan.py /tmp")
-        self.Ready()
-        # self.runCmd("ls /tmp/run/mountd | grep sda1")
-        # if self.Ready("sda")  < 2:
-        #     raise Exception("PenDrive Not Found")
-        self.runCmd("python /tmp/ImeiRayan.py")
-        while True:
-            resp = con.readline().decode('utf-8')
-            self.logs.write(resp+"\n")
-            print(resp+"\n")
-            x = resp.find("IMEI:")
-            if x >= 0:
-                imei =  resp[x+6:x+21]
-                if imei.isdecimal():
-                    self.runCmd("#")
-                    self.imei = imei
-                    return 0
-                else:
-                    self.runCmd("#")
-                    return 1
-            elif resp.find(self.readyCheck) >= 0:
-                self.runCmd("#")
-                return 2
+    
     def ipGet(self):
-        self.runCmd("ifconfig br-lan "+self.ip)
+        self.runCmd("uci set network.lan.proto=\"static\"")
+        self.Ready()
+        self.runCmd("uci set network.lan.ipaddr=\""+ self.ip+ "\"")
+        self.Ready()
+        self.runCmd("uci set network.lan.netmask=\"255.255.255.0\"")
+        self.Ready()
+        self.runCmd("uci commit network")
+        self.Ready()
+        self.runCmd("/etc/init.d/network restart")
+        time.sleep(3)
         self.Ready()
         return self.ip
-    def ipSet(self): #deprecated
-        self.runCmd("ifconfig br-lan "+self.ip)
-        self.Ready()
-        time.sleep(1)
-        self.ssh = fabric.Connection(self.ip, user="root",connect_kwargs={"password":"root"})
+    def pullInfo(self, start_key, end_key, resp, waits=20):
+        self.logs.write(resp+"\n")
+        if self.verbose:
+            print(resp+"\n")
+        s = resp.find(start_key)
+        if s == -1:
+            return "DNF"
+        e = resp.find(end_key)
+        if e == -1:
+            return "DNF"
+        return resp[s+len(start_key):e].strip()
+    # def getIMEI(self):
+    #     con = self.connection
+    #     self.runCmd("echo 3 > /proc/sys/kernel/printk")
+    #     self.Ready()
+    #     self.runCmd("cp /tmp/run/mountd/sda1/RayanScripts/ImeiRayan.py /tmp")
+    #     self.Ready()
+    #     # self.runCmd("ls /tmp/run/mountd | grep sda1")
+    #     # if self.Ready("sda")  < 2:
+    #     #     raise Exception("PenDrive Not Found")
+    #     self.runCmd("python /tmp/ImeiRayan.py")
+    #     while True:
+    #         resp = con.readline().decode('utf-8')
+    #         self.logs.write(resp+"\n")
+    #         print(resp+"\n")
+    #         x = resp.find("IMEI:")
+    #         if x >= 0:
+    #             imei =  resp[x+6:x+21]
+    #             if imei.isdecimal():
+    #                 self.runCmd("#")
+    #                 self.imei = imei
+    #                 return 0
+    #             else:
+    #                 self.runCmd("#")
+    #                 return 1
+    #         elif resp.find(self.readyCheck) >= 0:
+    #             self.runCmd("#")
+    #             return 2
+        
+    # def ipSet(self): #deprecated
+    #     self.runCmd("ifconfig br-lan "+self.ip)
+    #     self.Ready()
+    #     time.sleep(1)
+    #     self.ssh = fabric.Connection(self.ip, user="root",connect_kwargs={"password":"root"})
 
-        resp = self.ssh.run("python /tmp/run/mountd/sda1/DIO_Test.py").stdout
-        self.logs.write(resp)
-        flags = []
-        flags.append(resp.find("DIO Success"))
-        resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_c.py").stdout
-        self.logs.write(resp)
-        flags.append(resp.find("ADC Current HIGH test PASS"))
-        resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_t.py").stdout
-        self.logs.write(resp)
-        flags.append(resp.find("ADC Temperature test PASS"))
-        resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_v.py").stdout
-        self.logs.write(resp)
-        flags.append(resp.find("ADC Voltage HIGH test PASS"))
-        resp = self.ssh.run("python /tmp/run/mountd/sda1/2Way485.py").stdout
-        self.logs.write(resp)
-        flags.append(resp.find("485 pass"))
-        flags = list(map(lambda x: 1 if x >= 0 else False, flags))
-        if sum(flags) == 5:
-            print("Passed Secondary Testing")
-        else:
-            print("Failed Secondary")
-        print(flags)
+    #     resp = self.ssh.run("python /tmp/run/mountd/sda1/DIO_Test.py").stdout
+    #     self.logs.write(resp)
+    #     flags = []
+    #     flags.append(resp.find("DIO Success"))
+    #     resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_c.py").stdout
+    #     self.logs.write(resp)
+    #     flags.append(resp.find("ADC Current HIGH test PASS"))
+    #     resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_t.py").stdout
+    #     self.logs.write(resp)
+    #     flags.append(resp.find("ADC Temperature test PASS"))
+    #     resp = self.ssh.run("python /tmp/run/mountd/sda1/adc_v.py").stdout
+    #     self.logs.write(resp)
+    #     flags.append(resp.find("ADC Voltage HIGH test PASS"))
+    #     resp = self.ssh.run("python /tmp/run/mountd/sda1/2Way485.py").stdout
+    #     self.logs.write(resp)
+    #     flags.append(resp.find("485 pass"))
+    #     flags = list(map(lambda x: 1 if x >= 0 else False, flags))
+    #     if sum(flags) == 5:
+    #         print("Passed Secondary Testing")
+    #     else:
+    #         print("Failed Secondary")
+    #     print(flags)
     
         
-    def rLines(self): #deprecated, do not use
-        resp = []
-        for i, con in enumerate(self.connections):
-            resp.append(con.readline().decode('utf-8'))
-            print(resp[-1])
-            self.logs[i] += resp[-1]
+    # def rLines(self): #deprecated, do not use
+    #     resp = []
+    #     for i, con in enumerate(self.connections):
+    #         resp.append(con.readline().decode('utf-8'))
+    #         print(resp[-1])
+    #         self.logs[i] += resp[-1]
         
