@@ -1,0 +1,24 @@
+Commands,Success,Waits,lfr,FailMsg,Report
+sysupgrade -v /tmp/run/mountd/sda1/lks7688.img,br-lan: port 2(ra0) entered forwarding state,350,0,Failed SysUpgrade,
+#,,,,,
+sleep 15,,,,,
+#,,,,,
+python /tmp/run/mountd/sda1/RayanScripts/wdt.py &,,,,,
+dmesg | grep Infinicomm,Infinicomm,,,,0
+python /tmp/run/mountd/sda1/RayanScripts/flashdog.py &,,,,,
+cp /tmp/run/mountd/sda1/application_v4.tar.gz /root/;,,,,,
+cp /tmp/run/mountd/sda1/test_scripts.tar.gz /root/;,,,,,
+cp /tmp/run/mountd/sda1/icos.tar.gz /root/ &,,,,,
+cp /tmp/run/mountd/sda1/openssl-util.ipk /tmp/;,,,,,
+cp /tmp/run/mountd/sda1/RayanScripts/opkg_py_dep.sh /tmp/;,,,,,
+cd /tmp;,,,,,
+./opkg_py_dep.sh Rayan 12345678;,sd_card_success,350,0,Sd card fail,0
+#,,,,,
+sleep 3,,,,,
+kill $(ps | grep [f]lashdog.py | awk '{print $1}'),,,,,
+type pppd;,pppd is /usr/sbin/pppd,,,,0
+type chat;,chat is /usr/sbin/chat,,,,0
+type snmpd;,snmpd is /usr/sbin/snmpd,,,,0
+which minicom;,/usr/sbin/minicom,,,,0
+opkg list-installed | grep mraa;,libmraa,,,,0
+opkg list-installed | grep pyserial;,python-pyserial,,,,0

@@ -1,0 +1,21 @@
+Commands,SuccessCheck,FailMsg,Report
+python /tmp/run/mountd/sda1/RayanScripts/flashp2.py &,,,
+ls -lh /root | grep application_v4.tar.gz,application_v4.tar.gz,Application Tar not found,0
+ls -lh /root | grep icos.tar.gz,icos.tar.gz,icos tar not found,0
+ls -lh /root | grep test_scripts.tar.gz,test_scripts.tar.gz,testscripts not found,0
+python /tmp/run/mountd/sda1/RayanScripts/DIO_Test.py,DIO Success,DIO Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/adc_c.py,ADC Current HIGH test PASS,ADC Current Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/adc_t.py,ADC Temperature test PASS,ADC Temp Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/adc_v.py,ADC Voltage HIGH test PASS,ADC Voltage Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/2Way485.py,485 pass,485 Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/ldr.py,LDR Test Pass,LDR Fail,0
+python /tmp/run/mountd/sda1/RayanScripts/SD_Card.py,SD Success,SD card write failed,
+sleep 1,,,
+python /tmp/run/mountd/sda1/RayanScripts/SD_Check.py,SD card read success,SD card read failed,0
+python /tmp/run/mountd/sda1/RayanScripts/temp.py,Temperature TEST PASS,,0
+cd /root/,,,
+tar -xvzf application_v4.tar.gz,prepare_new.sh,,
+./prepare_new.sh,Copying Startup script,,
+md5sum /bootflash/icos.tar.gz,,,0
+mv /bootflash/icos.tar.gz /bootflash/icos.tar.g2,,,
+ls /bootflash | grep icos,icos,Untarring failed,
